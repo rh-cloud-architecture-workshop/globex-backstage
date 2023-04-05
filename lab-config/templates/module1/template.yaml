@@ -1,0 +1,55 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+# https://backstage.io/docs/features/software-catalog/descriptor-format#kind-template
+kind: Template
+metadata:
+  name: globex-module1
+  title: Provisions the Globex-Lab Module 1
+  description: Template for the scaffolder that publishes module 1 via ArgoCD (OpenShift GitOps)
+  tags:
+    - recommended
+    - lab
+spec:
+  owner: user:guest
+  type: lab-environment
+
+  # These parameters are used to generate the input form in the frontend, and are
+  # used to gather input data for the execution of the template.
+  parameters:
+    - title: Only a few clicks
+      required:
+        - owner
+        - name
+      properties:
+        name:
+          title: Name your module
+          type: string
+          description: Unique name of the module
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the component
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - User
+    
+  # These steps are executed in the scaffolder backend, using data that we gathered
+  # via the parameters above.
+  steps:
+    # Each step executes an action, in this case one templates files into the working directory.
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          owner: ${{ parameters.owner }}
+
+    
+    
+  
