@@ -1,101 +1,35 @@
-# Stage 1 - Install dependencies
-FROM registry.access.redhat.com/ubi9/nodejs-18-minimal:latest AS deps
-USER 0
+FROM node:16-bullseye-slim
 
-# Args
-ARG TECHDOCS_BUILDER_TYPE=external
-ARG TECHDOCS_GENERATOR_TYPE=local
-ARG TECHDOCS_PUBLISHER_TYPE=awsS3
+# Install sqlite3 dependencies. You can skip this if you don't use sqlite3 in the image,
+# in which case you should also move better-sqlite3 to "devDependencies" in package.json.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends libsqlite3-dev python3 build-essential && \
+    yarn config set python /usr/bin/python3
 
-# Install yarn
-RUN \
-  curl --silent --location https://dl.yarnpkg.com/rpm/yarn.repo | tee /etc/yum.repos.d/yarn.repo && \
-  microdnf install -y yarn
+# From here on we use the least-privileged `node` user to run the backend.
+USER node
 
-COPY ./package.json ./yarn.lock ./
-COPY ./packages ./packages
-COPY .yarn ./.yarn
-COPY .yarnrc.yml ./
+# This should create the app dir as `node`.
+# If it is instead created as `root` then the `tar` command below will fail: `can't create directory 'packages/': Permission denied`.
+# If this occurs, then ensure BuildKit is enabled (`DOCKER_BUILDKIT=1`) so the app dir is correctly created as `node`.
+WORKDIR /app
 
-# Remove all files except package.json
-RUN find packages -mindepth 2 -maxdepth 2 \! -name "package.json" -exec rm -rf {} \+
+# This switches many Node.js dependencies to production mode.
+ENV NODE_ENV production
 
-ENV IS_CONTAINER="TRUE"
-RUN yarn install --immutable --network-timeout 600000
-
-# Stage 2 - Build packages
-FROM registry.access.redhat.com/ubi9/nodejs-18-minimal:latest AS build
-USER 0
-
-# Args
-ARG TECHDOCS_BUILDER_TYPE
-ARG TECHDOCS_GENERATOR_TYPE
-ARG TECHDOCS_PUBLISHER_TYPE
-
-# Env vars
-ENV TECHDOCS_BUILDER_TYPE=$TECHDOCS_BUILDER_TYPE
-ENV TECHDOCS_GENERATOR_TYPE=$TECHDOCS_GENERATOR_TYPE
-ENV TECHDOCS_PUBLISHER_TYPE=$TECHDOCS_PUBLISHER_TYPE
-
-# Install yarn
-RUN \
-  curl --silent --location https://dl.yarnpkg.com/rpm/yarn.repo | tee /etc/yum.repos.d/yarn.repo && \
-  microdnf install -y yarn
-
-COPY . .
-COPY --from=deps /opt/app-root/src .
-COPY --from=deps --chown=0:0 /opt/app-root/src/.yarn ./.yarn
-COPY --from=deps --chown=0:0 /opt/app-root/src/.yarnrc.yml  ./
-
-RUN yarn tsc
-RUN yarn --cwd packages/backend build
-
-# Stage 3 - Build the actual backend image and install production dependencies
-FROM registry.access.redhat.com/ubi9/nodejs-18-minimal:latest AS runner
-USER 0
-
-# Args
-ARG TECHDOCS_BUILDER_TYPE
-ARG TECHDOCS_GENERATOR_TYPE
-ARG TECHDOCS_PUBLISHER_TYPE
-
-# Env vars
-ENV TECHDOCS_BUILDER_TYPE=$TECHDOCS_BUILDER_TYPE
-ENV TECHDOCS_GENERATOR_TYPE=$TECHDOCS_GENERATOR_TYPE
-ENV TECHDOCS_PUBLISHER_TYPE=$TECHDOCS_PUBLISHER_TYPE
-
-# Install yarn
-RUN \
-  curl --silent --location https://dl.yarnpkg.com/rpm/yarn.repo | tee /etc/yum.repos.d/yarn.repo && \
-  microdnf install -y yarn
-
-# Install gzip for tar and clean up
-RUN microdnf install -y gzip && microdnf clean all
-
-COPY --from=build --chown=1001:1001 /opt/app-root/src/.yarn ./.yarn
-COPY --from=build --chown=1001:1001 /opt/app-root/src/.yarnrc.yml  ./
-
-# Switch to nodejs user
-USER 1001
-
-# Copy the install dependencies from the build stage and context
-COPY --from=build /opt/app-root/src/yarn.lock /opt/app-root/src/package.json /opt/app-root/src/packages/backend/dist/skeleton.tar.gz ./
+# Copy repo skeleton first, to avoid unnecessary docker cache invalidation.
+# The skeleton contains the package.json of each package in the monorepo,
+# and along with yarn.lock and the root package.json, that's enough to run yarn install.
+COPY --chown=node:node yarn.lock package.json packages/backend/dist/skeleton.tar.gz ./
 RUN tar xzf skeleton.tar.gz && rm skeleton.tar.gz
 
-# Install production dependencies
-ENV IS_CONTAINER="TRUE"
-RUN yarn workspaces focus --all --production && yarn cache clean
+RUN --mount=type=cache,target=/home/node/.cache/yarn,sharing=locked,uid=1000,gid=1000 \
+    yarn install --frozen-lockfile --production --network-timeout 300000
 
-# Copy the built packages from the build stage
-COPY --from=build /opt/app-root/src/packages/backend/dist/bundle.tar.gz .
+# Then copy the rest of the backend bundle, along with any other files we might want.
+COPY --chown=node:node packages/backend/dist/bundle.tar.gz app-config*.yaml ./
 RUN tar xzf bundle.tar.gz && rm bundle.tar.gz
-
-# Copy any other files that we need at runtime
-COPY ./app-config.yaml ./app-config.production.yaml ./
-#COPY ./github-app-backstage-showcase-credentials.yaml ./
-
-# The fix-permissions script is important when operating in environments that dynamically use a random UID at runtime, such as OpenShift.
-# The upstream backstage image does not account for this and it causes the container to fail at runtime.
-RUN fix-permissions ./
 
 CMD ["node", "packages/backend", "--config", "app-config.yaml"]
