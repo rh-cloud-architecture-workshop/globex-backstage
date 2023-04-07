@@ -32,6 +32,7 @@ spec:
           title: Owner
           type: string
           description: Owner of the component
+          default: ${{ user.entity.metadata.name }}
           ui:field: OwnerPicker
           ui:options:
             allowedKinds:

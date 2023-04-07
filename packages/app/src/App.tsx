@@ -92,7 +92,15 @@ const routes = (
         <ReportIssue />
       </TechDocsAddons>
     </Route>
-    <Route path="/create" element={<ScaffolderPage />} />
+    <Route path="/create" element={<ScaffolderPage
+  groups={[
+    {
+      title: "Lab Modules",
+      filter: entity =>
+        entity?.metadata?.tags?.includes('lab') ?? false,
+    },
+  ]}
+/>} />
     <Route path="/api-docs" element={<ApiExplorerPage />} />
     <Route
       path="/tech-radar"
