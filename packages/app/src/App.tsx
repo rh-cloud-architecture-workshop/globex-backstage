@@ -36,11 +36,14 @@ import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/
 
 //import { githubAuthApiRef } from '@backstage/core-plugin-api';
 //import { SignInPage } from '@backstage/core-components';
-
+import { ProxiedSignInPage } from '@backstage/core-components';
 
 
 const app = createApp({
   apis,
+  components: {
+    SignInPage: (props) => <ProxiedSignInPage {...props} provider="oauth2Proxy" />,
+  },
   bindRoutes({ bind }) {
     bind(catalogPlugin.externalRoutes, {
       createComponent: scaffolderPlugin.routes.root,
