@@ -39,8 +39,12 @@ export default async function createPlugin(
       oauth2Proxy: providers.oauth2Proxy.create({
         signIn: {
           async resolver({ result }, ctx) {
-            const name = result.getHeader('x-forwarded-preferred-username');
-            if (!name) {
+            const name = result.getHeader('x-forwarded-user');
+            
+            //console.debug("Resolver with " + name);
+            //console.debug("OAuth2 Proxy Result: " + JSON.stringify(result))
+            
+            if (typeof name === "undefined" || name == "undefined") {
               throw new Error('Request did not contain a user');
             }
  
