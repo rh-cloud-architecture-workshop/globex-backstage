@@ -1,9 +1,8 @@
-.yarn/cache
-.yarn/install-state.gz
+.yarn/*
 **/dist
 **/node_modules
 plugins
+*.local.yaml
 coverage
 dist-types
-examples
 environment-secrets.txt
