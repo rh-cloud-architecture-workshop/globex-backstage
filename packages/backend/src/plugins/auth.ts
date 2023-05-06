@@ -44,6 +44,8 @@ export default async function createPlugin(
             //console.debug("Resolver with " + name);
             //console.debug("OAuth2 Proxy Result: " + JSON.stringify(result))
             
+            console.debug("Cluster GUID: " + process.env.CLUSTERGUID);
+            
             if (typeof name === "undefined" || name == "undefined") {
               throw new Error('Request did not contain a user');
             }
