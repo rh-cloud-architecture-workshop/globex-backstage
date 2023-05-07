@@ -7,6 +7,7 @@
  */
 
 import Router from 'express-promise-router';
+// import cookieParser from 'express';
 import {
   createServiceBuilder,
   loadBackendConfig,
@@ -32,6 +33,8 @@ import { PluginEnvironment } from './types';
 import { ServerPermissionClient } from '@backstage/plugin-permission-node';
 import { DefaultIdentityClient } from '@backstage/plugin-auth-node';
 
+// import { createAuthMiddleware } from './authMiddleware';
+
 function makeCreateEnv(config: Config) {
   const root = getRootLogger();
   const reader = UrlReaders.default({ logger: root, config });
@@ -39,6 +42,7 @@ function makeCreateEnv(config: Config) {
   const cacheManager = CacheManager.fromConfig(config);
   const databaseManager = DatabaseManager.fromConfig(config, { logger: root });
   const tokenManager = ServerTokenManager.noop();
+  // const tokenManager = ServerTokenManager.fromConfig(config, { logger: root });
   const taskScheduler = TaskScheduler.fromConfig(config);
 
   const identity = DefaultIdentityClient.create({
@@ -86,7 +90,16 @@ async function main() {
   const searchEnv = useHotMemoize(module, () => createEnv('search'));
   const appEnv = useHotMemoize(module, () => createEnv('app'));
 
+  //const authMiddleware = await createAuthMiddleware(config, appEnv);
+
   const apiRouter = Router();
+  // apiRouter.use(cookieParser());
+  // // The auth route must be publicly available as it is used during login
+  // apiRouter.use('/auth', await auth(authEnv));
+  // // Add a simple endpoint to be used when setting a token cookie
+  // apiRouter.use('/cookie', authMiddleware, (_req, res) => {
+  //   res.status(200).send(`Coming right up`);
+  // });
   apiRouter.use('/catalog', await catalog(catalogEnv));
   apiRouter.use('/scaffolder', await scaffolder(scaffolderEnv));
   apiRouter.use('/auth', await auth(authEnv));
@@ -95,6 +108,7 @@ async function main() {
   apiRouter.use('/search', await search(searchEnv));
 
   // Add backends ABOVE this line; this 404 handler is the catch-all fallback
+  //apiRouter.use(authMiddleware, notFoundHandler());
   apiRouter.use(notFoundHandler());
 
   const service = createServiceBuilder(module)

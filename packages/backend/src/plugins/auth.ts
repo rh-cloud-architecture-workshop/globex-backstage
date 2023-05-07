@@ -39,11 +39,14 @@ export default async function createPlugin(
       oauth2Proxy: providers.oauth2Proxy.create({
         signIn: {
           async resolver({ result }, ctx) {
-            const name = result.getHeader('x-forwarded-user');
+            var headers = result.headers;
             
-            //console.debug("Resolver with " + name);
-            //console.debug("OAuth2 Proxy Result: " + JSON.stringify(result))
-            
+            console.debug("Headers--------------------------------------------------------------------");
+            console.debug(JSON.stringify(headers,null,2));
+
+            const name = result.getHeader('X-Forwarded-Preferred-Username');
+            console.debug("Resolver started with " + name);
+                        
             console.debug("Cluster GUID: " + process.env.CLUSTERGUID);
             
             if (typeof name === "undefined" || name == "undefined") {

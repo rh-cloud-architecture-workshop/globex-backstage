@@ -38,12 +38,38 @@ import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/
 //import { SignInPage } from '@backstage/core-components';
 import { ProxiedSignInPage } from '@backstage/core-components';
 
+// import type { IdentityApi } from '@backstage/core-plugin-api';
+// import { discoveryApiRef, useApi } from '@backstage/core-plugin-api';
+// import { setTokenCookie } from './cookieAuth';
+
 
 const app = createApp({
   apis,
   components: {
     SignInPage: (props) => <ProxiedSignInPage {...props} provider="oauth2Proxy" />,
+
+    // SignInPage: props => {
+    //   const discoveryApi = useApi(discoveryApiRef);
+    //   return (
+    //     <ProxiedSignInPage
+    //       {...props}
+    //       provider="oauth2Proxy"
+    //       onSignInSuccess={async (identityApi: IdentityApi) => {
+    //         setTokenCookie(
+    //           await discoveryApi.getBaseUrl('cookie'),
+    //           identityApi,
+    //         );
+
+    //         props.onSignInSuccess(identityApi);
+    //       }}
+    //     />
+    //   );
+    // },
+
+
   },
+
+
   bindRoutes({ bind }) {
     bind(catalogPlugin.externalRoutes, {
       createComponent: scaffolderPlugin.routes.root,
